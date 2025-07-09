@@ -1,0 +1,62 @@
+{
+  "environments": {
+    "dev": {
+      "name": "Development",
+      "baseUrl": "https://api-dev.techcorp.com",
+      "description": "Development environment for testing new features",
+      "version": "1.0.0-dev",
+      "authentication": {
+        "type": "api-key",
+        "keyLocation": "header",
+        "keyName": "X-API-Key-Dev"
+      },
+      "features": {
+        "rateLimiting": false,
+        "debugging": true,
+        "mockData": true
+      }
+    },
+    "staging": {
+      "name": "Staging", 
+      "baseUrl": "https://api-staging.techcorp.com",
+      "description": "Staging environment for pre-production testing",
+      "version": "1.0.0-rc",
+      "authentication": {
+        "type": "api-key",
+        "keyLocation": "header", 
+        "keyName": "X-API-Key-Staging"
+      },
+      "features": {
+        "rateLimiting": true,
+        "debugging": true,
+        "mockData": false
+      }
+    },
+    "prod": {
+      "name": "Production",
+      "baseUrl": "https://api.techcorp.com", 
+      "description": "Production environment for live applications",
+      "version": "1.0.0",
+      "authentication": {
+        "type": "api-key",
+        "keyLocation": "header",
+        "keyName": "X-API-Key"
+      },
+      "features": {
+        "rateLimiting": true,
+        "debugging": false,
+        "mockData": false
+      }
+    }
+  },
+  "sdkConfig": {
+    "company": "TechCorp",
+    "supportEmail": "sdk-support@techcorp.com",
+    "documentationUrl": "https://docs.techcorp.com",
+    "githubUrl": "https://github.com/techcorp/api-clients",
+    "licenses": {
+      "type": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  }
+}
