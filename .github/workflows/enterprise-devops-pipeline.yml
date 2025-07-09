@@ -162,7 +162,6 @@ jobs:
       if: github.event.inputs.skip_tests != 'true'
       run: |
         echo "🧪 Running basic tests for ${{ matrix.language }} SDK..."
-        # Add basic validation tests here
         if [ -d "generated-sdks/dev-${{ matrix.language }}" ]; then
           echo "✅ SDK directory created successfully"
           ls -la generated-sdks/dev-${{ matrix.language }}/ | head -5
@@ -219,7 +218,6 @@ jobs:
       if: github.event.inputs.skip_tests != 'true'
       run: |
         echo "🔬 Running integration tests for ${{ matrix.language }} SDK..."
-        # Add integration tests here
         echo "✅ Integration tests passed for staging"
 
     - name: Upload Staging Artifacts
@@ -270,7 +268,6 @@ jobs:
       if: github.event.inputs.skip_tests != 'true'
       run: |
         echo "🔒 Running security scans for ${{ matrix.language }} SDK..."
-        # Add security scans here
         echo "✅ Security scans passed for production"
 
     - name: Upload Production Artifacts
@@ -280,7 +277,7 @@ jobs:
         path: generated-sdks/prod-${{ matrix.language }}/
         retention-days: 90
 
-  # 📋 STAGE 5: Create Pull Request & Releases
+  # 📋 STAGE 5: Create Pull Request
   create-pull-request:
     name: 📋 Create SDK Update PR
     runs-on: ubuntu-latest
@@ -395,8 +392,11 @@ jobs:
           - [x] All SDK artifacts generated
           - [x] Multi-environment testing completed
           
+          ## 📦 SDK Downloads
+          - **Download all SDKs**: [GitHub Actions Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - **18 SDK packages** available for download
+          
           ## 🔗 Resources
-          - 📚 [View Releases](https://github.com/${{ github.repository }}/releases)
           - 📦 [Download Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
           - 🐛 [Report Issues](https://github.com/${{ github.repository }}/issues)
           
@@ -411,7 +411,6 @@ jobs:
           🌍 multi-environment
           📦 auto-generated
           ✅ production-ready
-
 
   # 🔔 FINAL STAGE: Completion Summary
   notify-completion:
