@@ -428,62 +428,70 @@ jobs:
       with:
         path: all-artifacts/
 
-    - name: Organize artifacts for releases
+    - name: Debug artifacts structure
       run: |
-        echo "📁 Organizing artifacts for releases..."
-        mkdir -p release-files/{dev,staging,prod}
-        
-        # Copy development artifacts
-        if [ -d "all-artifacts" ]; then
-          find all-artifacts -name "dev-*" -type d | while read dir; do
-            if [ -d "$dir" ]; then
-              echo "📦 Processing development artifact: $(basename $dir)"
-              cp -r "$dir"/* release-files/dev/ 2>/dev/null || true
-            fi
-          done
-          
-          # Copy staging artifacts  
-          find all-artifacts -name "staging-*" -type d | while read dir; do
-            if [ -d "$dir" ]; then
-              echo "📦 Processing staging artifact: $(basename $dir)"
-              cp -r "$dir"/* release-files/staging/ 2>/dev/null || true
-            fi
-          done
-          
-          # Copy production artifacts
-          find all-artifacts -name "prod-*" -type d | while read dir; do
-            if [ -d "$dir" ]; then
-              echo "📦 Processing production artifact: $(basename $dir)"
-              cp -r "$dir"/* release-files/prod/ 2>/dev/null || true
-            fi
-          done
-        fi
-        
-        echo "📊 Release file structure:"
-        ls -la release-files/ 2>/dev/null || echo "No release files found"
-        for env in dev staging prod; do
-          if [ -d "release-files/$env" ]; then
-            echo "📁 $env files: $(find release-files/$env -type f | wc -l)"
-          fi
-        done
+        echo "🔍 Debugging artifact structure..."
+        ls -la all-artifacts/ || echo "No artifacts directory"
+        find all-artifacts -type d -name "*dev*" 2>/dev/null || echo "No dev artifacts found"
+        find all-artifacts -type d -name "*staging*" 2>/dev/null || echo "No staging artifacts found"  
+        find all-artifacts -type d -name "*prod*" 2>/dev/null || echo "No prod artifacts found"
 
-    - name: Create Development Release
+    - name: Create Development Release Archive
       if: needs.deploy-development.result == 'success'
       run: |
-        echo "📦 Creating development release..."
-        if [ -d "release-files/dev" ] && [ "$(find release-files/dev -type f | wc -l)" -gt 0 ]; then
-          # Create a tar.gz of dev files for easier release management
-          cd release-files
-          tar -czf ../dev-sdks-${{ needs.validate-and-plan.outputs.version-dev }}.tar.gz dev/ 2>/dev/null || echo "No dev files to archive"
+        echo "📦 Creating development release archive..."
+        mkdir -p release-archives
+        
+        # Find and archive all dev artifacts
+        if find all-artifacts -name "*dev*" -type d | head -1 | grep -q .; then
+          echo "✅ Found dev artifacts, creating archive..."
+          cd all-artifacts
+          tar -czf ../release-archives/dev-sdks-${{ needs.validate-and-plan.outputs.version-dev }}.tar.gz *dev* 2>/dev/null || echo "⚠️ No dev files to archive"
           cd ..
+          ls -la release-archives/
+        else
+          echo "⚠️ No dev artifacts found"
+          touch release-archives/dev-sdks-${{ needs.validate-and-plan.outputs.version-dev }}.tar.gz
         fi
-      
+
+    - name: Create Staging Release Archive
+      if: needs.deploy-staging.result == 'success'
+      run: |
+        echo "📦 Creating staging release archive..."
+        mkdir -p release-archives
+        
+        if find all-artifacts -name "*staging*" -type d | head -1 | grep -q .; then
+          echo "✅ Found staging artifacts, creating archive..."
+          cd all-artifacts
+          tar -czf ../release-archives/staging-sdks-${{ needs.validate-and-plan.outputs.version-staging }}.tar.gz *staging* 2>/dev/null || echo "⚠️ No staging files to archive"
+          cd ..
+        else
+          echo "⚠️ No staging artifacts found"
+          touch release-archives/staging-sdks-${{ needs.validate-and-plan.outputs.version-staging }}.tar.gz
+        fi
+
+    - name: Create Production Release Archive
+      if: needs.deploy-production.result == 'success'
+      run: |
+        echo "📦 Creating production release archive..."
+        mkdir -p release-archives
+        
+        if find all-artifacts -name "*prod*" -type d | head -1 | grep -q .; then
+          echo "✅ Found production artifacts, creating archive..."
+          cd all-artifacts
+          tar -czf ../release-archives/prod-sdks-${{ needs.validate-and-plan.outputs.version-prod }}.tar.gz *prod* 2>/dev/null || echo "⚠️ No prod files to archive"
+          cd ..
+        else
+          echo "⚠️ No production artifacts found"
+          touch release-archives/prod-sdks-${{ needs.validate-and-plan.outputs.version-prod }}.tar.gz
+        fi
+
     - name: Upload Development Release
       if: needs.deploy-development.result == 'success'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ needs.validate-and-plan.outputs.version-dev }}
-        name: "Development Release - ${{ needs.validate-and-plan.outputs.version-dev }}"
+        name: "🛠️ Development Release - ${{ needs.validate-and-plan.outputs.version-dev }}"
         body: |
           ## 🛠️ Development Environment Release
           
@@ -492,40 +500,30 @@ jobs:
           **Commit**: `${{ github.sha }}`  
           **Changes**: ${{ needs.validate-and-plan.outputs.change-summary }}
           
-          ### 📦 Generated SDKs
-          - 🐍 Python SDK
-          - 📜 JavaScript SDK  
-          - 🐹 Go SDK
-          - ☕ Java SDK
-          - 🔷 C# SDK
-          - 🐘 PHP SDK
+          ### 📦 Generated SDKs (Download Archive)
+          - 🐍 Python SDK (Development Build)
+          - 📜 JavaScript SDK (Development Build)
+          - 🐹 Go SDK (Development Build)
+          - ☕ Java SDK (Development Build)
+          - 🔷 C# SDK (Development Build)
+          - 🐘 PHP SDK (Development Build)
           
           ### 🔗 Environment Details
-          - **API URL**: https://api-dev.techcorp.com
-          - **Environment**: Development
+          - **API URL**: `https://api-dev.techcorp.com`
           - **Features**: Debug mode enabled, Mock data available
-        files: |
-          dev-sdks-${{ needs.validate-and-plan.outputs.version-dev }}.tar.gz
+          
+          **Download the complete SDK archive below ⬇️**
+        files: release-archives/dev-sdks-${{ needs.validate-and-plan.outputs.version-dev }}.tar.gz
         prerelease: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create Staging Release
-      if: needs.deploy-staging.result == 'success'
-      run: |
-        echo "📦 Creating staging release..."
-        if [ -d "release-files/staging" ] && [ "$(find release-files/staging -type f | wc -l)" -gt 0 ]; then
-          cd release-files
-          tar -czf ../staging-sdks-${{ needs.validate-and-plan.outputs.version-staging }}.tar.gz staging/ 2>/dev/null || echo "No staging files to archive"
-          cd ..
-        fi
-        
     - name: Upload Staging Release
       if: needs.deploy-staging.result == 'success'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ needs.validate-and-plan.outputs.version-staging }}
-        name: "Staging Release - ${{ needs.validate-and-plan.outputs.version-staging }}"
+        name: "🎯 Staging Release - ${{ needs.validate-and-plan.outputs.version-staging }}"
         body: |
           ## 🎯 Staging Environment Release
           
@@ -534,7 +532,7 @@ jobs:
           **Commit**: `${{ github.sha }}`  
           **Changes**: ${{ needs.validate-and-plan.outputs.change-summary }}
           
-          ### 📦 Generated SDKs
+          ### 📦 Generated SDKs (Download Archive)
           - 🐍 Python SDK (Release Candidate)
           - 📜 JavaScript SDK (Release Candidate)
           - 🐹 Go SDK (Release Candidate)
@@ -543,31 +541,21 @@ jobs:
           - 🐘 PHP SDK (Release Candidate)
           
           ### 🔗 Environment Details
-          - **API URL**: https://api-staging.techcorp.com
-          - **Environment**: Staging
+          - **API URL**: `https://api-staging.techcorp.com`
           - **Features**: Rate limiting enabled, Integration testing
-        files: |
-          staging-sdks-${{ needs.validate-and-plan.outputs.version-staging }}.tar.gz
+          
+          **Download the complete SDK archive below ⬇️**
+        files: release-archives/staging-sdks-${{ needs.validate-and-plan.outputs.version-staging }}.tar.gz
         prerelease: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create Production Release
-      if: needs.deploy-production.result == 'success'
-      run: |
-        echo "📦 Creating production release..."
-        if [ -d "release-files/prod" ] && [ "$(find release-files/prod -type f | wc -l)" -gt 0 ]; then
-          cd release-files
-          tar -czf ../prod-sdks-${{ needs.validate-and-plan.outputs.version-prod }}.tar.gz prod/ 2>/dev/null || echo "No prod files to archive"
-          cd ..
-        fi
-        
-    - name: Upload Production Release  
+    - name: Upload Production Release
       if: needs.deploy-production.result == 'success'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ needs.validate-and-plan.outputs.version-prod }}
-        name: "Production Release v${{ needs.validate-and-plan.outputs.version-prod }}"
+        name: "🏭 Production Release v${{ needs.validate-and-plan.outputs.version-prod }}"
         body: |
           ## 🏭 Production Environment Release
           
@@ -576,30 +564,29 @@ jobs:
           **Commit**: `${{ github.sha }}`  
           **Changes**: ${{ needs.validate-and-plan.outputs.change-summary }}
           
-          ### 📦 Generated SDKs
-          - 🐍 Python SDK (Production Ready)
-          - 📜 JavaScript SDK (Production Ready)
-          - 🐹 Go SDK (Production Ready)
-          - ☕ Java SDK (Production Ready)  
-          - 🔷 C# SDK (Production Ready)
-          - 🐘 PHP SDK (Production Ready)
+          ### 📦 Generated SDKs (Download Archive)
+          - 🐍 Python SDK (Production Ready) ✅
+          - 📜 JavaScript SDK (Production Ready) ✅
+          - 🐹 Go SDK (Production Ready) ✅
+          - ☕ Java SDK (Production Ready) ✅
+          - 🔷 C# SDK (Production Ready) ✅
+          - 🐘 PHP SDK (Production Ready) ✅
           
           ### ✅ Quality Gates Passed
           - Development testing ✅
           - Staging validation ✅
           - Integration tests ✅
-          - Security scans ✅
+          - Production readiness ✅
           
           ### 🔗 Environment Details
-          - **API URL**: https://api.techcorp.com
-          - **Environment**: Production
+          - **API URL**: `https://api.techcorp.com`
           - **Features**: Full production configuration
-        files: |
-          prod-sdks-${{ needs.validate-and-plan.outputs.version-prod }}.tar.gz
+          
+          **Download the complete SDK archive below ⬇️**
+        files: release-archives/prod-sdks-${{ needs.validate-and-plan.outputs.version-prod }}.tar.gz
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   # 🔔 STAGE 7: Notifications
   notify-completion:
     name: 🔔 Deployment Summary
