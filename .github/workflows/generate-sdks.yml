@@ -74,6 +74,7 @@ jobs:
     
     strategy:
       matrix:
+        environment: [dev, staging, prod]
         language: [python, javascript, go, java, csharp, php]
       fail-fast: false
     
@@ -116,42 +117,16 @@ jobs:
     - name: Install OpenAPI Generator
       run: npm install -g @openapitools/openapi-generator-cli
 
-    - name: Generate ${{ matrix.language }} SDK only
+    - name: Generate ${{ matrix.language }} SDK for ${{ matrix.environment }}
       run: |
-        echo "🚀 Generating ${{ matrix.language }} SDK..."
-        
-        # Create output directory
-        mkdir -p generated-sdks/${{ matrix.language }}
-        
-        # Generate the specific SDK
-        case "${{ matrix.language }}" in
-          python)
-            openapi-generator-cli generate -i specs/api-spec.yaml -g python -o generated-sdks/python --additional-properties=packageName=techcorp_api_client,projectName=techcorp-api-client,packageVersion=1.0.0
-            ;;
-          javascript)
-            openapi-generator-cli generate -i specs/api-spec.yaml -g javascript -o generated-sdks/javascript --additional-properties=projectName=techcorp-api-client,projectVersion=1.0.0
-            ;;
-          go)
-            openapi-generator-cli generate -i specs/api-spec.yaml -g go -o generated-sdks/go --additional-properties=packageName=techcorpapi,packageVersion=1.0.0
-            ;;
-          java)
-            openapi-generator-cli generate -i specs/api-spec.yaml -g java -o generated-sdks/java --additional-properties=groupId=com.techcorp,artifactId=api-client,artifactVersion=1.0.0
-            ;;
-          csharp)
-            openapi-generator-cli generate -i specs/api-spec.yaml -g csharp -o generated-sdks/csharp --additional-properties=packageName=TechCorp.ApiClient,packageVersion=1.0.0
-            ;;
-          php)
-            openapi-generator-cli generate -i specs/api-spec.yaml -g php -o generated-sdks/php --additional-properties=packageName=TechCorpApiClient,artifactVersion=1.0.0
-            ;;
-        esac
-        
-        echo "✅ ${{ matrix.language }} SDK generated successfully!"
+        echo "🚀 Generating ${{ matrix.language }} SDK for ${{ matrix.environment }} environment..."
+        node scripts/generate.js ${{ matrix.environment }}
 
-    - name: Upload ${{ matrix.language }} SDK Artifact
+    - name: Upload ${{ matrix.language }}-${{ matrix.environment }} SDK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: sdk-${{ matrix.language }}
-        path: generated-sdks/${{ matrix.language }}/
+        name: sdk-${{ matrix.environment }}-${{ matrix.language }}
+        path: generated-sdks/${{ matrix.environment }}-${{ matrix.language }}/
         retention-days: 30
 
   create-pull-request:
