@@ -1,0 +1,73 @@
+name: Generate SDKs
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'specs/**' ]  # Only trigger when specs change
+  pull_request:
+    branches: [ main ]
+    paths: [ 'specs/**' ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  generate-sdks:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4  # Updated to v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4  # Updated to v4
+      with:
+        node-version: '18'
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Setup Java  # ADD THIS STEP - Required for OpenAPI Generator
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+
+    - name: Install OpenAPI Generator
+      run: npm install -g @openapitools/openapi-generator-cli
+
+    - name: Validate OpenAPI Spec
+      run: openapi-generator-cli validate -i specs/api-spec.yaml
+
+    - name: Generate SDKs
+      run: npm run generate
+
+    - name: Fix Python SDK License  # ADD THIS STEP - Fix the license issue
+      run: |
+        if [ -f "generated-sdks/python/pyproject.toml" ]; then
+          sed -i 's/license = "NoLicense"/license = {text = "MIT"}/' generated-sdks/python/pyproject.toml
+        fi
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'Auto-generate SDKs from OpenAPI spec changes'
+        title: 'Auto-generated SDK updates'
+        body: |
+          This PR contains automatically generated SDK updates based on OpenAPI spec changes.
+          
+          **Changes include:**
+          - Updated Python SDK
+          - Updated JavaScript SDK
+          
+          **Generated from commit:** ${{ github.sha }}
+        branch: sdk-updates
+        delete-branch: true
+        draft: false
+
+    - name: Upload SDK artifacts
+      uses: actions/upload-artifact@v4  # Updated to v4
+      with:
+        name: generated-sdks
+        path: generated-sdks/

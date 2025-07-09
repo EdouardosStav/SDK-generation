@@ -1,0 +1,18 @@
+{
+  "name": "sdk-generation",
+  "version": "1.0.0",
+  "description": "Automated SDK generation from OpenAPI specs",
+  "main": "scripts/generate.js",
+  "scripts": {
+    "generate": "node scripts/generate.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["openapi", "sdk", "generation", "automation"],
+  "author": "EdouardosStav",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
