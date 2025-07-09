@@ -148,8 +148,10 @@ jobs:
         echo "🌍 Environment: Development"
         echo "🏷️ Version: ${{ needs.validate-and-plan.outputs.version-dev }}"
 
-    - name: Setup Tools
-      uses: ./.github/actions/setup-environments
+    - name: Setup All Tools
+      run: |
+        echo "🔧 Setting up all required tools..."
+        npm install -g @openapitools/openapi-generator-cli
 
     - name: Generate Development SDK
       run: |
@@ -198,8 +200,10 @@ jobs:
         echo "🌍 Environment: Staging" 
         echo "🏷️ Version: ${{ needs.validate-and-plan.outputs.version-staging }}"
 
-    - name: Setup Tools
-      uses: ./.github/actions/setup-environments
+    - name: Setup All Tools
+      run: |
+        echo "🔧 Setting up all required tools..."
+        npm install -g @openapitools/openapi-generator-cli
 
     - name: Wait for Development Success
       run: |
@@ -247,8 +251,10 @@ jobs:
         echo "🌍 Environment: Production"
         echo "🏷️ Version: ${{ needs.validate-and-plan.outputs.version-prod }}"
 
-    - name: Setup Tools
-      uses: ./.github/actions/setup-environments
+    - name: Setup All Tools
+      run: |
+        echo "🔧 Setting up all required tools..."
+        npm install -g @openapitools/openapi-generator-cli
 
     - name: Production Readiness Check
       run: |
