@@ -116,10 +116,36 @@ jobs:
     - name: Install OpenAPI Generator
       run: npm install -g @openapitools/openapi-generator-cli
 
-    - name: Generate ${{ matrix.language }} SDK
+    - name: Generate ${{ matrix.language }} SDK only
       run: |
         echo "🚀 Generating ${{ matrix.language }} SDK..."
-        npm run generate
+        
+        # Create output directory
+        mkdir -p generated-sdks/${{ matrix.language }}
+        
+        # Generate the specific SDK
+        case "${{ matrix.language }}" in
+          python)
+            openapi-generator-cli generate -i specs/api-spec.yaml -g python -o generated-sdks/python --additional-properties=packageName=techcorp_api_client,projectName=techcorp-api-client,packageVersion=1.0.0
+            ;;
+          javascript)
+            openapi-generator-cli generate -i specs/api-spec.yaml -g javascript -o generated-sdks/javascript --additional-properties=projectName=techcorp-api-client,projectVersion=1.0.0
+            ;;
+          go)
+            openapi-generator-cli generate -i specs/api-spec.yaml -g go -o generated-sdks/go --additional-properties=packageName=techcorpapi,packageVersion=1.0.0
+            ;;
+          java)
+            openapi-generator-cli generate -i specs/api-spec.yaml -g java -o generated-sdks/java --additional-properties=groupId=com.techcorp,artifactId=api-client,artifactVersion=1.0.0
+            ;;
+          csharp)
+            openapi-generator-cli generate -i specs/api-spec.yaml -g csharp -o generated-sdks/csharp --additional-properties=packageName=TechCorp.ApiClient,packageVersion=1.0.0
+            ;;
+          php)
+            openapi-generator-cli generate -i specs/api-spec.yaml -g php -o generated-sdks/php --additional-properties=packageName=TechCorpApiClient,artifactVersion=1.0.0
+            ;;
+        esac
+        
+        echo "✅ ${{ matrix.language }} SDK generated successfully!"
 
     - name: Upload ${{ matrix.language }} SDK Artifact
       uses: actions/upload-artifact@v4
@@ -127,76 +153,6 @@ jobs:
         name: sdk-${{ matrix.language }}
         path: generated-sdks/${{ matrix.language }}/
         retention-days: 30
-
-  create-release:
-    name: 📦 Create SDK Release
-    runs-on: ubuntu-latest
-    needs: [validate-spec, generate-enterprise-sdks]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Download all SDK artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: generated-sdks/
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-
-    - name: Generate release notes
-      id: release-notes
-      run: |
-        echo "📝 Generating release notes..."
-        cat > RELEASE_NOTES.md << 'EOF'
-        # 🎉 TechCorp SDK Release v${{ env.TECHCORP_VERSION }}
-        
-        ## 🚀 What's New
-        - ✅ **6 Language SDKs**: Python, JavaScript, Go, Java, C#, PHP
-        - 🔧 **Enterprise Features**: Custom branding, professional documentation
-        - 🌍 **Multi-Environment Support**: Dev, Staging, Production configs
-        - 📊 **Automated Pipeline**: Fully automated generation and validation
-        
-        ## 📦 Available SDKs
-        
-        | Language | Package Manager | Installation |
-        |----------|----------------|--------------|
-        | 🐍 Python | PyPI | `pip install techcorp-api-client` |
-        | 📜 JavaScript | npm | `npm install techcorp-api-client` |
-        | 🐹 Go | Go Modules | `go get github.com/techcorp/api-client-go` |
-        | ☕ Java | Maven | `com.techcorp:api-client:${{ env.TECHCORP_VERSION }}` |
-        | 🔷 C# | NuGet | `dotnet add package TechCorp.ApiClient` |
-        | 🐘 PHP | Composer | `composer require techcorp/api-client` |
-        
-        ## 🔗 Links
-        - 📚 [Documentation](https://docs.techcorp.com)
-        - 🐛 [Report Issues](https://github.com/${{ github.repository }}/issues)
-        - 💬 [Community Support](https://community.techcorp.com)
-        
-        ---
-        *Generated automatically by TechCorp Enterprise SDK Pipeline*
-        EOF
-        
-        echo "release-notes<<EOF" >> $GITHUB_OUTPUT
-        cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ env.TECHCORP_VERSION }}-${{ github.run_number }}
-        name: "TechCorp SDK Release v${{ env.TECHCORP_VERSION }}-${{ github.run_number }}"
-        body: ${{ steps.release-notes.outputs.release-notes }}
-        files: |
-          generated-sdks/**/*
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   create-pull-request:
     name: 📋 Create SDK Update PR
@@ -211,23 +167,25 @@ jobs:
     - name: Download all SDK artifacts
       uses: actions/download-artifact@v4
       with:
-        path: generated-sdks/
+        path: artifacts/
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '11'
-
-    - name: Install dependencies and generate
+    - name: Organize SDK files
       run: |
-        npm install -g @openapitools/openapi-generator-cli
-        npm run generate
+        echo "📁 Organizing SDK files..."
+        mkdir -p generated-sdks
+        
+        # Move each SDK to the correct location
+        for sdk_dir in artifacts/sdk-*/; do
+          if [ -d "$sdk_dir" ]; then
+            sdk_name=$(basename "$sdk_dir" | sed 's/sdk-//')
+            echo "Moving $sdk_name SDK..."
+            mv "$sdk_dir" "generated-sdks/$sdk_name"
+          fi
+        done
+        
+        # List what we have
+        echo "📊 Generated SDKs:"
+        ls -la generated-sdks/
 
     - name: Generate PR metrics
       id: metrics
@@ -235,16 +193,14 @@ jobs:
         echo "📊 Calculating SDK metrics..."
         
         total_files=0
-        total_size=0
         sdk_count=0
         
         for sdk_dir in generated-sdks/*/; do
           if [ -d "$sdk_dir" ]; then
             sdk_count=$((sdk_count + 1))
             files=$(find "$sdk_dir" -type f | wc -l)
-            size=$(du -sh "$sdk_dir" | cut -f1)
             total_files=$((total_files + files))
-            echo "📁 $(basename "$sdk_dir"): $files files, $size"
+            echo "📁 $(basename "$sdk_dir"): $files files"
           fi
         done
         
@@ -265,55 +221,30 @@ jobs:
           ## 📊 Generation Summary
           - **🎯 SDKs Generated**: ${{ steps.metrics.outputs.sdk-count }} languages
           - **📁 Total Files**: ${{ steps.metrics.outputs.total-files }}
-          - **⚡ Generated**: ${{ github.run_number }} pipeline run
+          - **⚡ Pipeline Run**: #${{ github.run_number }}
           - **🔄 Commit**: `${{ github.sha }}`
           
           ## 🚀 Available SDKs
           
-          | Language | Status | Package Manager |
-          |----------|--------|----------------|
-          | 🐍 **Python** | ✅ Ready | PyPI |
-          | 📜 **JavaScript** | ✅ Ready | npm |
-          | 🐹 **Go** | ✅ Ready | Go Modules |
-          | ☕ **Java** | ✅ Ready | Maven Central |
-          | 🔷 **C#** | ✅ Ready | NuGet |
-          | 🐘 **PHP** | ✅ Ready | Packagist |
-          
-          ## 🔍 What's Changed
-          - 🔧 **Custom Branding**: All SDKs include TechCorp branding
-          - 📖 **Professional Docs**: Each SDK has comprehensive README
-          - 🏗️ **Build Ready**: All SDKs configured for package managers
-          - 🧪 **Validated**: OpenAPI spec validation passed
+          | Language | Status | Ready for |
+          |----------|--------|-----------|
+          | 🐍 **Python** | ✅ Generated | PyPI |
+          | 📜 **JavaScript** | ✅ Generated | npm |
+          | 🐹 **Go** | ✅ Generated | Go Modules |
+          | ☕ **Java** | ✅ Generated | Maven Central |
+          | 🔷 **C#** | ✅ Generated | NuGet |
+          | 🐘 **PHP** | ✅ Generated | Packagist |
           
           ## ✅ Quality Checks
           - [x] OpenAPI specification validated
           - [x] All SDKs generated successfully  
-          - [x] Custom documentation created
-          - [x] Package configurations verified
-          
-          ## 🔗 Resources
-          - 📚 [API Documentation](https://docs.techcorp.com)
-          - 🎯 [SDK Usage Examples](./generated-sdks/)
-          - 🐛 [Report Issues](https://github.com/${{ github.repository }}/issues)
+          - [x] Artifacts uploaded
           
           ---
-          🤖 *This PR was automatically created by the TechCorp Enterprise SDK Pipeline*
-          
-          **Ready to merge?** All SDKs are production-ready! 🎉
+          🤖 *Auto-generated by TechCorp Enterprise SDK Pipeline*
         branch: enterprise-sdk-updates
         delete-branch: true
         draft: false
-        labels: |
-          🚀 enterprise-sdks
-          📦 auto-generated
-          ✅ ready-for-review
-
-    - name: Upload Generation Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: sdk-generation-report
-        path: SDK_GENERATION_REPORT.md
-        retention-days: 90
 
   notify-completion:
     name: 🔔 Notify Completion
